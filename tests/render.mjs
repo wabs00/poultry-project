@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+process.env.DATABASE_PATH=join(mkdtempSync(join(tmpdir(),'poultry-render-')),'test.sqlite');
+const auth=await import('../server/auth.mjs');
+const store=await import('../server/database.mjs');
+process.env.ADMIN_USERNAME='test-owner';
+process.env.ADMIN_PASSWORD_HASH=await auth.hashPassword('Synthetic test password 2026');
+test('password hash verifies and rejects wrong/malformed input',async()=>{assert(await auth.verifyPassword('Synthetic test password 2026',process.env.ADMIN_PASSWORD_HASH));assert.equal(await auth.verifyPassword('wrong',process.env.ADMIN_PASSWORD_HASH),false);assert.equal(await auth.verifyPassword('wrong','broken'),false);});
+test('sessions cannot be forged and logout revokes session',()=>{const token=auth.newSession('test-owner');assert.equal(auth.sessionUser(token),'test-owner');assert.equal(auth.sessionUser('a'.repeat(64)),null);auth.revoke(token);assert.equal(auth.sessionUser(token),null);});
+test('password rotation invalidates old sessions',()=>{const token=auth.newSession('test-owner');const previous=process.env.ADMIN_PASSWORD_HASH;process.env.ADMIN_PASSWORD_HASH='scrypt$'+'b'.repeat(32)+'$'+'c'.repeat(128);assert.equal(auth.sessionUser(token),null);process.env.ADMIN_PASSWORD_HASH=previous;});
+test('revision compare-and-swap rejects stale writers',()=>{assert(store.saveRevision('test-owner',0,'{"value":1}','test'));assert.equal(store.saveRevision('test-owner',0,'{"value":2}','test'),undefined);assert.equal(store.latest('test-owner').revision,1);assert.equal(store.audit('test-owner').length,1);});
+test('login limiter persists and resets after cooldown',()=>{for(let i=0;i<10;i++)assert(auth.allowLogin(1000));assert.equal(auth.allowLogin(1001),false);assert(auth.allowLogin(301001));});
+test('origin checks reject missing and foreign origins',()=>{assert.equal(auth.sameOrigin(new Request('https://farm.example/api/login')),false);assert.equal(auth.sameOrigin(new Request('https://farm.example/api/login',{headers:{origin:'https://evil.example'}})),false);assert(auth.sameOrigin(new Request('https://farm.example/api/login',{headers:{origin:'https://farm.example'}})));});
+test('Render public origin works behind a proxy',()=>{process.env.RENDER_EXTERNAL_URL='https://farm.onrender.com';try{assert(auth.sameOrigin(new Request('http://0.0.0.0:10000/api/login',{headers:{origin:'https://farm.onrender.com'}})));assert.equal(auth.sameOrigin(new Request('http://0.0.0.0:10000/api/login',{headers:{origin:'https://evil.example'}})),false);}finally{delete process.env.RENDER_EXTERNAL_URL;}});

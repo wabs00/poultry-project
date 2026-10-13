@@ -1,4 +1,4 @@
 import Workspace from './workspace';
-import {requireChatGPTUser} from './chatgpt-auth';
+import {requireOwner} from './owner-auth';
 export const dynamic='force-dynamic';
-export default async function Home(){const user=await requireChatGPTUser('/');return <Workspace user={user.fullName??user.email??'Farm owner'}/>;}
+export default async function Home(){const owner=await requireOwner();return <Workspace user={owner}/>;}

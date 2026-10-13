@@ -1,0 +1,8 @@
+'use client';
+import {useState} from 'react';
+export default function Login(){
+  const [error,setError]=useState(''),[busy,setBusy]=useState(false);
+  async function submit(event:React.FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setError('');const data=new FormData(event.currentTarget);
+    try{const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:data.get('username'),password:data.get('password')})});const result=await response.json();if(!response.ok)throw Error(result.error);location.assign('/');}catch(e){setError(e instanceof Error?e.message:'Unable to sign in.');setBusy(false);}}
+  return <main style={{maxWidth:440,margin:'10vh auto',padding:30}}><div className="panel" style={{padding:30}}><h1 style={{fontSize:27}}>Flock & Field</h1><p style={{margin:'12px 0 24px'}}>Sign in to your private poultry workspace.</p><form onSubmit={submit}><label style={{display:'block'}}>Owner username<input name="username" autoComplete="username" required maxLength={100} style={{display:'block',width:'100%',padding:12,margin:'8px 0 18px',border:'1px solid #cad5cb',borderRadius:7}}/></label><label style={{display:'block'}}>Password<input name="password" type="password" autoComplete="current-password" required maxLength={256} style={{display:'block',width:'100%',padding:12,margin:'8px 0 22px',border:'1px solid #cad5cb',borderRadius:7}}/></label><button className="primary" disabled={busy} type="submit">{busy?'Signing in…':'Sign in'}</button>{error&&<p role="alert" style={{color:'#b12f37',marginTop:18}}>{error}</p>}</form></div></main>;
+}
