@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {emptyFarm,demoFarm} from '../app/core.ts';
+import {parseStoredFarm} from '../app/storage.ts';
+test('stored empty and populated snapshots round-trip',()=>{for(const f of [emptyFarm(),demoFarm()])assert.deepEqual(parseStoredFarm(JSON.stringify(f)),f);});
+test('invalid JSON and missing collections are rejected',()=>{for(const s of ['bad','null','{}','[]'])assert.throws(()=>parseStoredFarm(s));});
+test('invalid currency rejected before rendering',()=>{assert.throws(()=>parseStoredFarm(JSON.stringify({...emptyFarm(),currency:'BAD'})));});
+test('missing reference is rejected',()=>{const f=demoFarm();f.flocks[0].feedId='missing';assert.throws(()=>parseStoredFarm(JSON.stringify(f)));});
+test('negative or string numeric data is rejected',()=>{const f=demoFarm();f.daily[0].feed=-1;assert.throws(()=>parseStoredFarm(JSON.stringify(f)));f.daily[0].feed='5';assert.throws(()=>parseStoredFarm(JSON.stringify(f)));});
+test('duplicate record IDs are rejected',()=>{const f=demoFarm();f.tasks.push({...f.tasks[0]});assert.throws(()=>parseStoredFarm(JSON.stringify(f)));});
